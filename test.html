@@ -1,0 +1,202 @@
+<html>
+ <head>
+ 	<meta charset="utf-8" />
+ 	<title>Chat temps réel !</title>
+  <link rel="stylesheet" href="index.css" />
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+ </head>
+ <body ng-app="app" ng-controller="ctrl">
+   <div ng-hide="connect">
+     <input type="text" ng-model="pseudo" />
+     <button type= "button" class= "btn btn-primary btn-lg" ng-click="NC()">entrer dans la room</button>
+   </div>
+   <div>
+     Score: {{score}}
+   </div>
+   <div ng-show="pseudo != '' " style="display: inline-block; float: left">
+			<div ng-init="connect = false" ng-repeat="ligne in laby">
+				<span class="prepa" ng-repeat="l in ligne.listecase" ng-class="{'nord': l.info.Nord == 0,'sud': l.info.Sud == 0,'est': l.info.Est == 0,'ouest': l.info.Ouest == 0, 'perso': l.info.listeJoueur.length != 0, 'piece': l.info.Piece == 1, 'monstre': l.info.Monstre == 1}">
+					<div class="contenu">
+
+	        </div>
+		 	  </span>
+		 </div>
+	 </div>
+   <script src="/socket.io/socket.io.js"></script>
+   <script src="http://localhost:1111/bootstrap.js"></script>
+   <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.6/angular.js"></script>
+   <script>
+   var app = angular.module('app', []);
+
+   app.controller('ctrl', function($scope, $interval){
+     $scope.score = 0;
+     $scope.pseudo = "";
+     $scope.laby = [{"listecase":[{"info":{"x":0,"Est":0,"Nord":0,"y":0,"Ouest":0,"listeJoueur":[],"Sud":1,"Piece":1,"Monstre":0}}]}];
+     var socket = io.connect('http://localhost:1111');
+     $scope.NC = function() {
+       socket.emit('nouveau_client', $scope.pseudo);
+       console.log($scope.pseudo);
+       $scope.connect = true;
+     }
+     socket.on('nouveauJoueur', function(spawn) {
+       console.log(spawn.pseudo);
+       $scope.laby[spawn.y].listecase[spawn.x].info.listeJoueur.push(spawn.pseudo);
+       $scope.$apply();
+     })
+     socket.on('laby', function(laby){
+       $scope.$apply($scope.laby = laby);
+     });
+     socket.on('nouvellePiece', function(response) {
+       $scope.$apply($scope.laby[response.i].listecase[response.j].info.Piece += 1);
+     })
+     socket.on('mouvUser', function(coord) {
+       $scope.laby[coord.y].listecase[coord.x].info.listeJoueur.push(coord.pseudo);
+       $scope.laby[coord.y].listecase[coord.x].info.Piece = 0;
+       $scope.laby[coord.y].listecase[coord.x].info.Monstre = 0;
+       $scope.laby[coord.i].listecase[coord.j].info.listeJoueur.splice(coord.pseudo, 1);
+       $scope.$apply();
+     })
+     socket.on('delUser', function(pseudo) {
+       for (var i = 0; i < 25; i++) {
+         for (var j = 0; j < 25; j++) {
+           if ($scope.laby[i].listecase[j].info.listeJoueur != undefined)
+           for (var k = 0; k < $scope.laby[i].listecase[j].info.listeJoueur.length; k++) {
+             name = $scope.laby[i].listecase[j].info.listeJoueur[k];
+             if (name == pseudo)
+             {
+               $scope.laby[i].listecase[j].info.listeJoueur.splice($scope.laby[i].listecase[j].info.listeJoueur.indexOf(pseudo), 1);
+             }
+           }
+         }
+       }
+       $scope.$apply();
+     })
+     $interval(function() {
+       if ($scope.connect) {
+         var i = Math.floor((Math.random() * 25) + 0);
+         var j = Math.floor((Math.random() * 25) + 0);
+         socket.emit('nouvellePiece', {'i':i,'j':j});
+       }
+     }, 30000);
+     socket.on('nouveauMonstre', function(response) {
+       $scope.$apply($scope.laby[response.i].listecase[response.j].info.Monstre += 1);
+     })
+     $interval(function() {
+       if ($scope.connect) {
+         var i = Math.floor((Math.random() * 25) + 0);
+         var j = Math.floor((Math.random() * 25) + 0);
+         socket.emit('nouveauMonstre', {'i':i,'j':j});
+       }
+     }, 60000);
+     $scope.depPerso = function(e)
+				{
+					e = e || window.event;
+				    var a;
+				    var b;
+
+				    if (e.keyCode == '38') {
+				    	for (var i = 0; i < 25; i++) {
+				    		for (var j = 0; j < 25; j++) {
+                  if ($scope.laby[i].listecase[j].info.listeJoueur != undefined) {
+                    for (var k = 0; k < $scope.laby[i].listecase[j].info.listeJoueur.length; k++) {
+                      name = $scope.laby[i].listecase[j].info.listeJoueur[k];
+    				    			if (name == $scope.pseudo && $scope.laby[i].listecase[j].info.Nord == 1)
+    				    			{
+    				    				a = ($scope.laby[i].listecase[j].info.y - 1 + 25)% 25;
+    				    				b = $scope.laby[i].listecase[j].info.x;
+                        console.log("a: " + a + " b: " + b);
+    				    				$scope.laby[i].listecase[j].info.listeJoueur.splice($scope.laby[i].listecase[j].info.listeJoueur.indexOf($scope.pseudo), 1);
+                        socket.emit('mouvUser', {'x': b,'y':a,'i':i,'j':j,'pseudo':$scope.pseudo});
+    				    			}
+                    }
+                  }
+				    		}
+				    	}
+              if (a != undefined && b != undefined) {
+  				      $scope.laby[a].listecase[b].info.listeJoueur.push($scope.pseudo);
+                $scope.verifPiece(a, b);
+              }
+				        // up arrow
+				    }
+				    else if (e.keyCode == '40') {
+				    	for (var i = 0; i < 25; i++) {
+				    		for (var j = 0; j < 25; j++) {
+				    			if ($scope.laby[i].listecase[j].info.listeJoueur != undefined)
+                  for (var k = 0; k < $scope.laby[i].listecase[j].info.listeJoueur.length; k++) {
+                    name = $scope.laby[i].listecase[j].info.listeJoueur[k];
+                    if (name == $scope.pseudo && $scope.laby[i].listecase[j].info.Sud == 1)
+                    {
+                      a = ($scope.laby[i].listecase[j].info.y + 1)% 25;
+                      b = $scope.laby[i].listecase[j].info.x;
+                      console.log("a: " + a + " b: " + b);
+                      $scope.laby[i].listecase[j].info.listeJoueur.splice($scope.laby[i].listecase[j].info.listeJoueur.indexOf($scope.pseudo), 1);
+                      socket.emit('mouvUser', {'x': b,'y':a,'i':i,'j':j,'pseudo':$scope.pseudo});
+                    }
+                  }
+				    		}
+				    	}
+              if (a != undefined && b != undefined) {
+  				      $scope.laby[a].listecase[b].info.listeJoueur.push($scope.pseudo);
+                $scope.verifPiece(a, b);
+              }
+				        // down arrow
+				    }
+				    else if (e.keyCode == '37') {
+              for (var i = 0; i < 25; i++) {
+				    		for (var j = 0; j < 25; j++) {
+				    			if ($scope.laby[i].listecase[j].info.listeJoueur != undefined)
+                  for (var k = 0; k < $scope.laby[i].listecase[j].info.listeJoueur.length; k++) {
+                    name = $scope.laby[i].listecase[j].info.listeJoueur[k];
+                    if (name == $scope.pseudo && $scope.laby[i].listecase[j].info.Ouest == 1)
+                    {
+                      a = $scope.laby[i].listecase[j].info.y;
+                      b = ($scope.laby[i].listecase[j].info.x - 1 + 25)% 25;
+                      console.log("a: " + a + " b: " + b);
+                      $scope.laby[i].listecase[j].info.listeJoueur.splice($scope.laby[i].listecase[j].info.listeJoueur.indexOf($scope.pseudo), 1);
+                      socket.emit('mouvUser', {'x': b,'y':a,'i':i,'j':j,'pseudo':$scope.pseudo});
+                    }
+                  }
+				    		}
+				    	}
+              if (a != undefined && b != undefined) {
+  				      $scope.laby[a].listecase[b].info.listeJoueur.push($scope.pseudo);
+                $scope.verifPiece(a, b);
+              }
+				       // left arrow
+				    }
+				    else if (e.keyCode == '39') {
+            for (var i = 0; i < 25; i++) {
+              for (var j = 0; j < 25; j++) {
+                if ($scope.laby[i].listecase[j].info.listeJoueur != undefined)
+                for (var k = 0; k < $scope.laby[i].listecase[j].info.listeJoueur.length; k++) {
+                  name = $scope.laby[i].listecase[j].info.listeJoueur[k];
+                  if (name == $scope.pseudo && $scope.laby[i].listecase[j].info.Est == 1)
+                  {
+                    a = $scope.laby[i].listecase[j].info.y;
+                    b = ($scope.laby[i].listecase[j].info.x + 1)% 25;
+                    console.log("a: " + a + " b: " + b);
+                    $scope.laby[i].listecase[j].info.listeJoueur.splice($scope.laby[i].listecase[j].info.listeJoueur.indexOf($scope.pseudo), 1);
+                    socket.emit('mouvUser', {'x': b,'y':a,'i':i,'j':j,'pseudo':$scope.pseudo});
+                  }
+                }
+              }
+            }
+            if (a != undefined && b != undefined) {
+              $scope.laby[a].listecase[b].info.listeJoueur.push($scope.pseudo);
+              $scope.verifPiece(a, b);
+            }
+				       // right arrow
+				    }
+				    $scope.$apply();
+				}
+				document.onkeydown = $scope.depPerso;
+        $scope.verifPiece = function(a, b) {
+          $scope.score += $scope.laby[a].listecase[b].info.Piece;
+          $scope.laby[a].listecase[b].info.Piece = 0;
+          $scope.score -= 2 * $scope.laby[a].listecase[b].info.Monstre;
+          $scope.laby[a].listecase[b].info.Monstre = 0;
+        }
+   });
+   </script>
+ </body>
+</html>
