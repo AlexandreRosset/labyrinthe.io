@@ -1,73 +1,105 @@
-<!DOCTYPE html>
 <html>
  <head>
  	<meta charset="utf-8" />
  	<title>Chat temps réel !</title>
+  <link rel="stylesheet" href="index.css" />
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
  </head>
  <body ng-app="app" ng-controller="ctrl">
- 	<h1>Le Chat temps réel !</h1>
- <section ng-repeat="m in listemessage">
-	 [{{m.id}}]: {{m.message}}
- </section>
- <form>
- <input type="text" ng-model="message" placeholder="Votre message..." size="50" autofocus />
-<button ng-click="formulaire_chat()">envoyer</button>
-</form>
- <!--<script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>-->
- <script src="/socket.io/socket.io.js"></script>
- <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.6/angular.js"></script>
- <script>
- var app = angular.module('app', []);
+   <div ng-hide="perso.pseudo != ''">
+     <input type="text" ng-model="pseudo" />
+     <button type= "button" class= "btn btn-primary btn-lg" ng-click="start()">commencer à miner</button>
+   </div>
+   <div ng-show="perso.pseudo != ''">
+     <div class="menu">
+       <span ng-click="stats = !stats">Perso</span>
+     </div>
+     <div ng-show="stats">
 
- app.controller('ctrl', function($scope){
-	 $scope.listemessage = [];
-	 var socket = io.connect('http://10.69.0.43:8080');
-	 var pseudo = prompt('Quel est votre pseudo ?');
-	 socket.emit('nouveau_client', pseudo);
-	 document.title = pseudo + ' - ' + document.title;
-	 socket.on('message', function(data) {
-	 	insereMessage(data.pseudo, data.message)
-	 })
-	 socket.on('nouveau_client', function(pseudo) {
-	 	insereMessage(pseudo, pseudo + ' a rejoint le Chat !');
-	 })
-	 $scope.formulaire_chat = function () {
-	 socket.emit('message', $scope.message);
-	 insereMessage(pseudo, $scope.message);
-	 return false;
-	 }
-	 function insereMessage(pseudo, message) {
-	 $scope.message = "";
-	 var now = new Date();
-	 var i = now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds();
-	 notifyMe("Nouveau message de " + pseudo);
-	 $scope.$apply($scope.listemessage.push({'id': i, 'message':'' + pseudo + ' >>> ' + message + ''}));
-	 }
-	 function notifyMe(mess) {
-  if (!("Notification" in window)) {
-    alert("Ce navigateur ne supporte pas les notifications desktop");
-  }
-  else if (Notification.permission === "granted") {
-    var notification = new Notification(mess);
-  }
-  else if (Notification.permission !== 'denied') {
-    Notification.requestPermission(function (permission) {
-      if(!('permission' in Notification)) {
-        Notification.permission = permission;
-      }
-      if (permission === "granted") {
-        var notification = new Notification(mess);
-      }
-    });
-  }
-}
- });
+     </div>
+	 </div>
+   <script src="/socket.io/socket.io.js"></script>
+   <script src="http://localhost:1111/bootstrap.js"></script>
+   <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.6/angular.js"></script>
+   <script>
+   var app = angular.module('app', []);
 
- app.filter('reverse', function() {
-  return function(items) {
-    return items.slice().reverse();
-  };
-});
- </script>
+   app.controller('ctrl', function($scope, $interval){
+     $scope.perso = {
+       pseudo: "",
+       gold: 0,
+       exp: 0,
+       niv: 1,
+       tailleinv: 100
+     }
+     $scope.stats = true;
+     $scope.inventaire = [];
+     $scope.connect = false;
+     $scope.items = [];
+     $scope.marchand.gold = 0;
+     $scope.marchand.inventaire = [];
+
+     $scope.tailleInv = function (nb) {
+       var taille = nb;
+       for (let i = 0; i < $scope.inventaire.length; i++) {
+         taille += $scope.inventaire[i].nb;
+       }
+       if (taille <= $scope.perso.tailleinv) {
+         return true;
+       }
+       return false;
+     }
+
+     $scope.addinventaire = function (id, nb) {
+       var fait = false;
+       for (let i = 0; i < $scope.inventaire.length; i++) {
+         if ($scope.inventaire[i].id == id && $scope.inventaire[i].nb + nb > 0 && $scope.tailleInv(nb)) {
+           $scope.inventaire[i].nb += nb;
+           fait = true;
+         }
+       }
+       if (fait == false && nb > 0 && $scope.tailleInv(nb)) {
+         $scope.inventaire.push({
+           id: id,
+           nb: nb,
+         })
+       }
+     }
+
+     var socket = io.connect('http://localhost:1111');
+     $scope.start = function () {
+       $scope.perso.pseudo = $scope.speudo;
+       socket.emit('new player', $scope.perso.pseudo);
+       $scope.connect = true;
+     }
+     socket.on('listeItem', function (items) {
+       $scope.items = items.data;
+     });
+     socket.on('marchand', function (marchand) {
+       $scope.marchand.gold = marchand.gold;
+       $scope.marchand.inventaire = marchand.inventaire;
+     });
+     /*$scope.NC = function() {
+       socket.emit('nouveau_client', $scope.pseudo);
+       console.log($scope.pseudo);
+       $scope.connect = true;
+     }
+     socket.on('nouveauJoueur', function(spawn) {
+       console.log(spawn.pseudo);
+       $scope.laby[spawn.y].listecase[spawn.x].info.listeJoueur.push(spawn.pseudo);
+       $scope.$apply();
+     })
+     socket.on('laby', function(laby){
+       $scope.$apply($scope.laby = laby);
+     });*/
+     /*$interval(function() {
+       if ($scope.connect) {
+         var i = Math.floor((Math.random() * 25) + 0);
+         var j = Math.floor((Math.random() * 25) + 0);
+         socket.emit('nouvellePiece', {'i':i,'j':j});
+       }
+     }, 30000);*/
+   });
+   </script>
  </body>
 </html>

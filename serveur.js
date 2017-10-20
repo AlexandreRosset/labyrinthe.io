@@ -6,7 +6,7 @@ var tailleTableau = 25;//à changer également dans laby_generator.js
 httpServer = http.createServer(app);
 
 app.get('/', function (req, res) {
- res.sendfile(__dirname + '/test.html');
+ res.sendfile(__dirname + '/index.html');
 });
 app.get('/index.css', function (req, res) {
  res.sendfile(__dirname + '/index.css');
@@ -41,7 +41,7 @@ function addPeople(pseudo) {
 }
 
 io.sockets.on('connection', function (socket, pseudo) {
-  var UsrPseudo;
+  /*var UsrPseudo;
   socket.on('nouveau_client', function(pseudo) {
     UsrPseudo = pseudo;
     var spawn = addPeople(pseudo);
@@ -77,5 +77,5 @@ io.sockets.on('connection', function (socket, pseudo) {
       }
     }
     io.sockets.emit('delUser', UsrPseudo)
-  })
+  })*/
 });
