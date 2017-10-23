@@ -1,7 +1,7 @@
 var http = require("http");
 var app = require('express')();
+var express = require('express');
 var labygenerator = require('./laby_generator.js');
-var tailleTableau = 25;//à changer également dans laby_generator.js
 
 httpServer = http.createServer(app);
 
@@ -26,21 +26,51 @@ app.get('/piece2.jpg', function (req, res) {
 app.get('/monstre2.jpg', function (req, res) {
  res.sendfile(__dirname + '/monstre2.jpg');
 });
+app.use(express.static('img'));
 
 var laby = labygenerator.generLaby();
 
 httpServer.listen(1111);
 
 var io = require('socket.io').listen(httpServer);
-
-function addPeople(pseudo) {
-  var i = Math.floor((Math.random() * tailleTableau) + 0);
-  var j = Math.floor((Math.random() * tailleTableau) + 0);
-  laby[i].listecase[j].info.listeJoueur.push(pseudo);
-  return {'x':j,'y':i,'pseudo':pseudo};
+var marchand = {
+  gold: 1000,
+  inventaire: []
 }
 
-io.sockets.on('connection', function (socket, pseudo) {
+function addItem(transaction) {
+  var fait = false;
+  for (let i = 0; i < marchand.inventaire.length; i++) {
+    if (marchand.inventaire[i].id == transaction.id) {
+      marchand.inventaire[i].nb += transaction.nb;
+      fait = true;
+    }
+    if (marchand.inventaire[i].nb <= 0) {
+      marchand.inventaire.splice(i, 1);
+    }
+  }
+  if (fait == false) {
+    marchand.inventaire.push({
+      id: transaction.id,
+      nb: transaction.nb
+    })
+  }
+}
+
+
+io.sockets.on('connection', function (socket) {
+  var UsrPseudo;
+  socket.on('new_player', function (pseudo) {
+    UsrPseudo = pseudo;
+    socket.emit('listeItem', laby);
+    socket.emit('marchand', marchand);
+  });
+  socket.on('transaction', function (transaction) {
+    marchand.gold += transaction.gold;
+    addItem(transaction);
+    io.sockets.emit('transaction', transaction);
+  })
+
   /*var UsrPseudo;
   socket.on('nouveau_client', function(pseudo) {
     UsrPseudo = pseudo;

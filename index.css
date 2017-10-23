@@ -8,64 +8,7 @@ body{
 	padding-top: 50px;
 }
 
-
-.nord {
-
-	border-top: 2px solid black !important;
-}
-.sud {
-
-	border-bottom: 2px solid black !important;
-}
-.est {
-
-	border-right: 2px solid black !important;
-}
-.ouest {
-
-	border-left: 2px solid black !important;
-}
-.solution {
-	background-color: green;
-}
-
-.perso {
-	background-color: red !important;
-	background-image: url("pers.jpg");
-
-}
-.piece {
-	background-color: yellow;
-	background-image: url("piece2.jpg");
-}
-.monstre {
-	background-color: grey;
-	background-image: url("monstre2.jpg");
-}
-.contenu {
-
-	margin: 5px;
-	padding: 0px;
-	display: inline-block;
-	height: 10px !important;
-	width: 10px !important;
-	color: white;
-}
-.prepa {
-	border: 2px solid transparent;
-	white-space:nowrap;
-}
-.score {
-	display: inline-block;
-	float: center;
-	padding-left: 200px;
-}
-.first {
-	background-color: rgb(255, 215, 0);
-}
-.second {
-	background-color: rgb(192, 192, 192);
-}
-.third {
-	background-color: rgb(165, 42, 42);
+img{
+	height: 50px;
+	width: 50px;
 }

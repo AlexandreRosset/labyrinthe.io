@@ -12,10 +12,39 @@
    </div>
    <div ng-show="perso.pseudo != ''">
      <div class="menu">
-       <span ng-click="stats = !stats">Perso</span>
+       <button ng-click="stats = !stats">Perso</button>
+       <button ng-click="marchand.visible = !marchand.visible">Marchand</button>
      </div>
-     <div ng-show="stats">
 
+
+     <div ng-show="stats">
+       Personnage: {{perso.pseudo}}<br />
+       Niv: {{perso.niv}}<br />
+       Exp: {{perso.exp}}<br />
+       Gold: {{perso.gold}}<br />
+       Taille max de l'inventaire: {{perso.tailleinv}}<br />
+       Inventaire: <br />
+       <div class="objets" ng-repeat="item in inventaire">
+         <img ng-src="{{findImg(item.id)}}"/><br />
+         Nom: {{findName(item.id)}}<br />
+         Nombre: {{item.nb}}<br />
+         Prix: {{findPone(item.id)}} ({{findPtot(item.id, item.nb)}} total)<br />
+         <button ng-click="vendre(item.id)">Vendre</button>
+       </div>
+     </div>
+
+
+     <div ng-show="marchand.visible">
+       gold: {{marchand.gold}}<br />
+       taxe: 10%<br />
+       inventaire:
+       <div class="objets" ng-repeat="item in marchand.inventaire">
+         <img ng-src="{{findImg(item.id)}}"/><br />
+         Nom: {{findName(item.id)}}<br />
+         Nombre: {{item.nb}}<br />
+         Prix: {{findPone(item.id)}} ({{findPtot(item.id, item.nb)}} total)<br />
+         <button ng-click="acheter(item.id)">Acheter</button>
+       </div>
      </div>
 	 </div>
    <script src="/socket.io/socket.io.js"></script>
@@ -27,16 +56,21 @@
    app.controller('ctrl', function($scope, $interval){
      $scope.perso = {
        pseudo: "",
-       gold: 0,
+       gold: 10,
        exp: 0,
        niv: 1,
        tailleinv: 100
      }
      $scope.stats = true;
-     $scope.inventaire = [];
+     $scope.inventaire = [{
+       id: 1,
+       nb: 1
+     }];
      $scope.connect = false;
      $scope.items = [];
+     $scope.marchand = {};
      $scope.marchand.gold = 0;
+     $scope.marchand.visible = false;
      $scope.marchand.inventaire = [];
 
      $scope.tailleInv = function (nb) {
@@ -50,12 +84,47 @@
        return false;
      }
 
+     $scope.findPtot = function (id, nb) {
+       for (let i = 0; i < $scope.items.length; i++) {
+         if ($scope.items[i].id = id) {
+           return $scope.items[i].prix * nb;
+         }
+       }
+     }
+
+     $scope.findPone = function (id) {
+       for (let i = 0; i < $scope.items.length; i++) {
+         if ($scope.items[i].id = id) {
+           return $scope.items[i].prix;
+         }
+       }
+     }
+
+     $scope.findImg = function (id) {
+       for (let i = 0; i < $scope.items.length; i++) {
+         if ($scope.items[i].id = id) {
+           return $scope.items[i].img;
+         }
+       }
+     }
+
+     $scope.findName = function (id) {
+       for (let i = 0; i < $scope.items.length; i++) {
+         if ($scope.items[i].id = id) {
+           return $scope.items[i].name;
+         }
+       }
+     }
+
      $scope.addinventaire = function (id, nb) {
        var fait = false;
        for (let i = 0; i < $scope.inventaire.length; i++) {
-         if ($scope.inventaire[i].id == id && $scope.inventaire[i].nb + nb > 0 && $scope.tailleInv(nb)) {
+         if ($scope.inventaire[i].id == id && $scope.inventaire[i].nb + nb >= 0 && $scope.tailleInv(nb)) {
            $scope.inventaire[i].nb += nb;
            fait = true;
+         }
+         if ($scope.inventaire[i].nb <= 0) {
+           $scope.inventaire.splice(i, 1);
          }
        }
        if (fait == false && nb > 0 && $scope.tailleInv(nb)) {
@@ -66,20 +135,65 @@
        }
      }
 
+     $scope.addItem = function (transaction) {
+       var fait = false;
+       for (let i = 0; i < $scope.marchand.inventaire.length; i++) {
+         if ($scope.marchand.inventaire[i].id == transaction.id) {
+           $scope.marchand.inventaire[i].nb += transaction.nb;
+           fait = true;
+         }
+         if ($scope.marchand.inventaire[i].nb <= 0) {
+           $scope.marchand.inventaire.splice(i, 1);
+         }
+       }
+       if (fait == false) {
+         $scope.marchand.inventaire.push({
+           id: transaction.id,
+           nb: transaction.nb
+         })
+       }
+       $scope.marchand.gold += transaction.gold;
+     }
+
      var socket = io.connect('http://localhost:1111');
      $scope.start = function () {
        $scope.perso.pseudo = $scope.speudo;
-       socket.emit('new player', $scope.perso.pseudo);
+       socket.emit('new_player', $scope.perso.pseudo);
        $scope.connect = true;
      }
      socket.on('listeItem', function (items) {
-       $scope.items = items.data;
+       $scope.items = items;
      });
      socket.on('marchand', function (marchand) {
        $scope.marchand.gold = marchand.gold;
        $scope.marchand.inventaire = marchand.inventaire;
      });
-     
+     $scope.acheter = function (id) {
+       $scope.addinventaire(id, +1);
+       var p = Math.round($scope.findPone(id) * 1.1);
+       if ($scope.perso.gold - p >= 0) {
+         $scope.perso.gold -= p;
+         var transaction = {};
+         transaction.id = id;
+         transaction.gold = p;
+         transaction.nb = -1;
+         socket.emit('transaction', transaction);
+       }
+     }
+     $scope.vendre = function (id) {
+       $scope.addinventaire(id, -1);
+       $scope.perso.gold += $scope.findPone(id);
+       if ($scope.marchand.gold - $scope.findPone(id) >= 0) {
+         var transaction = {};
+         transaction.id = id;
+         transaction.gold = -$scope.findPone(id);
+         transaction.nb = 1;
+         socket.emit('transaction', transaction);
+       }
+     }
+     socket.on('transaction', function (transaction) {
+       $scope.addItem(transaction);
+     })
      /*$scope.NC = function() {
        socket.emit('nouveau_client', $scope.pseudo);
        console.log($scope.pseudo);
